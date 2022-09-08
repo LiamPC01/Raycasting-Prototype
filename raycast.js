@@ -39,7 +39,7 @@ class Player {
     constructor() {
         this.x = WINDOW_WIDTH / 2; // Player start in middle of the map
         this.y = WINDOW_HEIGHT / 2;
-        this.radius = 3; // Player size 3 pixels
+        this.radius = 3; // Player size 
         this.turnDirection = 0; // -1 if left, +1 if right
         this.walkDirection = 0; // -1 if back, +1 if front
         this.rotationAngle = Math.PI / 2;
@@ -51,8 +51,52 @@ class Player {
 
         // Moves the player forward in the direction theyre facing
         var moveStep = this.walkDirection * this.moveSpeed;
+
+        // Players location on the grid
+        this.gridX = Math.floor(player.x / TILE_SIZE);
+        this.gridY = Math.floor(player.y / TILE_SIZE);
+
+        // Check for walls around player
+        if (grid.grid[this.gridY - 1][this.gridX] == 1) { // Wall above
+            let wallY = (this.gridY) * TILE_SIZE; // gridx * tile_size = coords of wall
+            let distToWall = player.y - wallY; 
+            if (distToWall <= (player.radius + 1)) { 
+                player.y += player.radius;
+            }
+        }
+        if (grid.grid[this.gridY][this.gridX] == 1) { // Wall below
+            let wallY = this.gridY * TILE_SIZE; // gridx * tile_size = coords of wall
+            let distToWall = player.y - wallY; 
+            if (distToWall <= (player.radius + 1)) { 
+                player.y -= player.radius;
+            }
+        }
+        if (grid.grid[this.gridY][this.gridX - 1] == 1) { // Wall to left
+            let wallX = this.gridX * TILE_SIZE; // gridx * tile_size = coords of wall
+            let distToWall = player.x - wallX; 
+            if (distToWall <= (player.radius + 1)) { 
+                player.x += player.radius;
+            }
+        }
+        if (grid.grid[this.gridY][this.gridX + 1] == 1) { // Wall to right
+            let wallX = (this.gridX + 1) * TILE_SIZE; // gridx * tile_size = coords of wall
+            let distToWall = wallX - player.x; 
+            if (distToWall <= (player.radius + 1)) { 
+                player.x -= player.radius;
+            }
+
+        }
+
+        // Moves the player forward in direction theyre facing
         this.x += Math.cos(this.rotationAngle) * moveStep; // adjacent = cos(a) * hypotenuse
         this.y += Math.sin(this.rotationAngle) * moveStep; // oppsites = sin(a) * hypotenuse
+
+
+        // Check if overlapping
+        if (grid.grid[this.gridY][this.gridX] != 0) {
+            //console.log("Player overlapping");
+        }
+
     }
     render() {
         noStroke();
@@ -67,8 +111,8 @@ class Player {
             this.x + Math.cos(this.rotationAngle) * 30, // cos for adjacent
             // SOH: if sin(rotationAngle) = opp / 30 then opp = sin(rotationAngle) * 30
             this.y + Math.sin(this.rotationAngle) * 30 // sin for opposite
-            
-        ); 
+
+        );
     }
 }
 
@@ -76,6 +120,7 @@ var grid = new Map();
 var player = new Player();
 
 function keyPressed() {
+
     if (keyCode == UP_ARROW) {
         player.walkDirection = +1;
     } else if (keyCode == DOWN_ARROW) {
@@ -105,6 +150,7 @@ function setup() {
 
 function update() {
     player.update();
+
 }
 
 function draw() {

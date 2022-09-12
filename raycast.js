@@ -5,6 +5,11 @@ const MAP_NUM_COLS = 15;
 const WINDOW_WIDTH = MAP_NUM_COLS * TILE_SIZE;
 const WINDOW_HEIGHT = MAP_NUM_ROWS * TILE_SIZE;
 
+const FOV_ANGLE = 60 * (Math.PI / 180) // 60 degrees in radians
+
+const WALL_STRIP_WIDTH = 1;
+const NUM_RAYS = WINDOW_WIDTH / WALL_STRIP_WIDTH;
+
 class Map {
     constructor() {
         this.grid = [
@@ -33,6 +38,15 @@ class Map {
             }
         }
     }
+    hasWallAt(x, y) {
+        if (x < 0 || x > WINDOW_WIDTH || y < 0 || y > WINDOW_HEIGHT) {
+            return true;
+        }
+        var mapGridIndexX = Math.floor(x / TILE_SIZE);
+        var mapGridIndexY = Math.floor(y / TILE_SIZE);
+        return this.grid[mapGridIndexY][mapGridIndexX] != 0;
+
+    }
 }
 
 class Player {
@@ -42,61 +56,27 @@ class Player {
         this.radius = 3; // Player size 
         this.turnDirection = 0; // -1 if left, +1 if right
         this.walkDirection = 0; // -1 if back, +1 if front
-        this.rotationAngle = Math.PI / 2;
+        this.rotationAngle = Math.PI / 2; // PI is 180 degrees(facing left) / 2 is -90(facing down) 0(facing right)
         this.moveSpeed = 2.0;
         this.rotationSpeed = 2 * (Math.PI / 180); //rotating 2 degrees per frame, converted to radians
     }
     update() {
         this.rotationAngle += this.turnDirection * this.rotationSpeed;
 
-        // Moves the player forward in the direction theyre facing
-        var moveStep = this.walkDirection * this.moveSpeed;
+        var moveStep = this.walkDirection * this.moveSpeed; // 1, 0 or -1 * moveSpeed
 
         // Players location on the grid
         this.gridX = Math.floor(player.x / TILE_SIZE);
         this.gridY = Math.floor(player.y / TILE_SIZE);
 
-        // Check for walls around player
-        if (grid.grid[this.gridY - 1][this.gridX] == 1) { // Wall above
-            let wallY = (this.gridY) * TILE_SIZE; // gridx * tile_size = coords of wall
-            let distToWall = player.y - wallY; 
-            if (distToWall <= (player.radius + 1)) { 
-                player.y += player.radius;
-            }
-        }
-        if (grid.grid[this.gridY][this.gridX] == 1) { // Wall below
-            let wallY = this.gridY * TILE_SIZE; // gridx * tile_size = coords of wall
-            let distToWall = player.y - wallY; 
-            if (distToWall <= (player.radius + 1)) { 
-                player.y -= player.radius;
-            }
-        }
-        if (grid.grid[this.gridY][this.gridX - 1] == 1) { // Wall to left
-            let wallX = this.gridX * TILE_SIZE; // gridx * tile_size = coords of wall
-            let distToWall = player.x - wallX; 
-            if (distToWall <= (player.radius + 1)) { 
-                player.x += player.radius;
-            }
-        }
-        if (grid.grid[this.gridY][this.gridX + 1] == 1) { // Wall to right
-            let wallX = (this.gridX + 1) * TILE_SIZE; // gridx * tile_size = coords of wall
-            let distToWall = wallX - player.x; 
-            if (distToWall <= (player.radius + 1)) { 
-                player.x -= player.radius;
-            }
-
-        }
-
         // Moves the player forward in direction theyre facing
-        this.x += Math.cos(this.rotationAngle) * moveStep; // adjacent = cos(a) * hypotenuse
-        this.y += Math.sin(this.rotationAngle) * moveStep; // oppsites = sin(a) * hypotenuse
+        var newPlayerX = this.x + Math.cos(this.rotationAngle) * moveStep; // adjacent = cos(a) * hypotenuse
+        var newPlayerY = this.y + Math.sin(this.rotationAngle) * moveStep; // oppsites = sin(a) * hypotenuse
 
-
-        // Check if overlapping
-        if (grid.grid[this.gridY][this.gridX] != 0) {
-            //console.log("Player overlapping");
+        if (!grid.hasWallAt(newPlayerX, newPlayerY)) {
+            this.x = newPlayerX;
+            this.y = newPlayerY;
         }
-
     }
     render() {
         noStroke();
@@ -116,8 +96,39 @@ class Player {
     }
 }
 
+class Ray {
+    constructor(rayAngle) {
+        this.rayAngle = rayAngle;
+    }
+    render() {
+        stroke("red");
+        line(
+            player.x,
+            player.y,
+            player.x + Math.cos(this.rayAngle) * 30, // 30 is len of line
+            player.y + Math.sin(this.rayAngle) * 30
+
+        );
+    }
+    hitDetection() {
+        // is the ray going down or up?
+        console.log("rayAngle = " + this.rayAngle);
+        var distToAboveY = player.y % TILE_SIZE; // remainder is distance to tile above
+        var distToBelowY = TILE_SIZE - distToAboveY;
+        var interceptY = player.y - distToAboveY; 
+
+        var distToX = distToAboveY / Math.tan(this.rayAngle); // toa, distToX is adj, distToAboveY is opp
+        var interceptX = player.x + distToX;
+
+        //console.log("player(" + Math.floor(player.x) + "," + Math.floor(player.y) + ")");
+        //console.log("intercept(" + Math.floor(interceptX) + "," + Math.floor(interceptY) + ")");
+       
+    }
+}
+
 var grid = new Map();
 var player = new Player();
+var rays = [];
 
 function keyPressed() {
 
@@ -144,18 +155,46 @@ function keyReleased() {
     }
 }
 
+function castAllRays() {
+    var columnId = 0;
+
+    // start first ray subtracting half of the FOV
+    var rayAngle = player.rotationAngle - (FOV_ANGLE / 2); // rotationAngle(middle line) - (FOV_ANGLE(last line) / 2) = first line 
+
+    rays = [];
+
+    // loop all columns casting the rays
+    //for (var i = 0; i < NUM_RAYS; i++)
+    for (var i = 0; i < 1; i++) {
+        var ray = new Ray(rayAngle);
+        // ray.cast()
+        rays.push(ray);
+
+        rayAngle += FOV_ANGLE / NUM_RAYS;
+
+        columnId++;
+
+    }
+    //HERE
+    ray.hitDetection();
+}
+
 function setup() {
     createCanvas(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 function update() {
     player.update();
-
+    castAllRays();
 }
 
 function draw() {
     update();
+
     grid.render();
     player.render();
+    for (ray of rays) { // render all rays in rays array;
+        ray.render();
+    }
 }
 

@@ -1,4 +1,4 @@
-const TILE_SIZE = 64;
+const TILE_SIZE = 32;
 const MAP_NUM_ROWS = 11;
 const MAP_NUM_COLS = 15;
 
@@ -6,9 +6,12 @@ const WINDOW_WIDTH = MAP_NUM_COLS * TILE_SIZE;
 const WINDOW_HEIGHT = MAP_NUM_ROWS * TILE_SIZE;
 
 const FOV_ANGLE = 60 * (Math.PI / 180) // 60 degrees converted to radians
+const PROJECTION_PLANE_DIST = (WINDOW_WIDTH / 2) / Math.tan(FOV_ANGLE / 2);
 
-const WALL_STRIP_WIDTH = 15;
+const WALL_STRIP_WIDTH = 15; // 15
 const NUM_RAYS = WINDOW_WIDTH / WALL_STRIP_WIDTH;
+
+const MINIMAP_SCALE_FACTOR = 0.2;
 
 class Map {
     constructor() {
@@ -34,7 +37,12 @@ class Map {
                 var tileColor = this.grid[i][j] == 1 ? "#222" : "#fff";
                 stroke("#222");
                 fill(tileColor);
-                rect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+                rect(
+                    MINIMAP_SCALE_FACTOR * tileX,
+                    MINIMAP_SCALE_FACTOR * tileY,
+                    MINIMAP_SCALE_FACTOR * TILE_SIZE,
+                    MINIMAP_SCALE_FACTOR * TILE_SIZE
+                );
             }
         }
     }
@@ -82,19 +90,23 @@ class Player {
     render() {
         noStroke();
         fill("red");
-        circle(this.x, this.y, this.radius);
-        /*
-        stroke("red");
+        circle(
+            MINIMAP_SCALE_FACTOR * this.x,
+            MINIMAP_SCALE_FACTOR * this.y,
+            MINIMAP_SCALE_FACTOR * this.radius
+        );
+
+        stroke("blue");
         line( // creates a line and rotates where the player is facing
-            this.x,
-            this.y,
+            MINIMAP_SCALE_FACTOR * this.x,
+            MINIMAP_SCALE_FACTOR * this.y,
             // adjacent is along the x-axis, opposite is up the y-axis, hypotenuse is accross both(30)
             // CAH: if cos(rotationAngle) = adj / 30 then adj = cos(rotationAngle) * 30
-            this.x + Math.cos(this.rotationAngle) * 30,
+            MINIMAP_SCALE_FACTOR * (this.x + Math.cos(this.rotationAngle) * 30),
             // SOH: if sin(rotationAngle) = opp / 30 then opp = sin(rotationAngle) * 30
-            this.y + Math.sin(this.rotationAngle) * 30
-            
-        );*/
+            MINIMAP_SCALE_FACTOR * (this.y + Math.sin(this.rotationAngle) * 30)
+
+        );
     }
 }
 
@@ -140,19 +152,17 @@ class Ray {
         var nextHorzTouchX = xintercept;
         var nextHorzTouchY = yintercept;
 
-        if (this.isRayFacingUp) {
-            nextHorzTouchY--;
-        }
+
 
         // increment xstep and ystep until we find a wall
         while (nextHorzTouchX >= 0 && nextHorzTouchY <= WINDOW_WIDTH && nextHorzTouchY >= 0 && nextHorzTouchY <= WINDOW_HEIGHT) {
-            if (grid.hasWallAt(nextHorzTouchX, nextHorzTouchY)) {
+            if (grid.hasWallAt(nextHorzTouchX, nextHorzTouchY - (this.isRayFacingUp ? 1 : 0))) {
                 foundHorzWallHit = true;
                 horzWallHitX = nextHorzTouchX;
                 horzWallHitY = nextHorzTouchY;
 
-                stroke("red");
-                line(player.x, player.y, horzWallHitX, horzWallHitY);
+                //stroke("red");
+                //line(player.x, player.y, horzWallHitX, horzWallHitY);
 
                 break;
             } else {
@@ -165,7 +175,6 @@ class Ray {
         // VERTICAL Ray-grid intersection //
         //////////////////////////////////////
 
-        // HORIZONTAL Ray-grid intersection
         var foundVertWallHit = false;
         var vertWallHitX = 0;
         var vertWallHitY = 0;
@@ -188,19 +197,17 @@ class Ray {
         var nextVertTouchX = xintercept;
         var nextVertTouchY = yintercept;
 
-        if (this.isRayFacingLeft) {
-            nextVertTouchX--;
-        }
+
 
         // increment xstep and ystep until we find a wall
         while (nextVertTouchX >= 0 && nextVertTouchY <= WINDOW_WIDTH && nextVertTouchY >= 0 && nextVertTouchY <= WINDOW_HEIGHT) {
-            if (grid.hasWallAt(nextVertTouchX, nextVertTouchY)) {
+            if (grid.hasWallAt(nextVertTouchX - (this.isRayFacingLeft ? 1 : 0), nextVertTouchY)) {
                 foundVertWallHit = true;
                 vertWallHitX = nextVertTouchX;
                 vertWallHitY = nextVertTouchY;
 
-                stroke("red");
-                line(player.x, player.y, vertWallHitX, vertWallHitY);
+                //stroke("red");
+                //line(player.x, player.y, vertWallHitX, vertWallHitY);
 
                 break;
             } else {
@@ -225,10 +232,10 @@ class Ray {
     render() {
         stroke("red");
         line(
-            player.x,
-            player.y,
-            this.wallHitX,
-            this.wallHitY
+            MINIMAP_SCALE_FACTOR * player.x,
+            MINIMAP_SCALE_FACTOR * player.y,
+            MINIMAP_SCALE_FACTOR * this.wallHitX,
+            MINIMAP_SCALE_FACTOR * this.wallHitY
 
         );
     }
@@ -284,6 +291,25 @@ function castAllRays() {
 
 }
 
+function render3DProjectedWalls() {
+    clear();
+    for (var i = 0; i < rays.length; i++) {
+        var distFromProjectionPlaneToWall = rays[i].distance - PROJECTION_PLANE_DIST;
+        var ratio = distFromProjectionPlaneToWall / PROJECTION_PLANE_DIST;
+        var projectedWallSize = TILE_SIZE * ratio;
+        console.log(projectedWallSize);
+        //rect(0, 0, WALL_STRIP_WIDTH, wallHeight);
+        stroke("black")
+        rect(
+            (i+1) * NUM_RAYS,
+            WINDOW_HEIGHT / 2,
+            projectedWallSize,
+            projectedWallSize
+        );
+    }
+
+}
+
 function normalizeAngle(angle) {
     angle = angle % (2 * Math.PI); // keeps angle less than 2 PI
     if (angle < 0) {
@@ -303,10 +329,13 @@ function setup() {
 function update() {
     player.update();
     castAllRays();
+
 }
 
 function draw() {
     update();
+
+    render3DProjectedWalls();
 
     grid.render();
     for (ray of rays) { // render all rays in rays array;
